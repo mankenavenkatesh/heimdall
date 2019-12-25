@@ -81,8 +81,6 @@ func InitGenesis(ctx sdk.Context, keeper Keeper, data GenesisState) {
 
 	// result
 	resultValSet := hmTypes.NewValidatorSet(vals)
-	validatorRewards := make(map[types.ValidatorID]*big.Int)
-
 	// add validators in store
 	for _, validator := range resultValSet.Validators {
 		// Add individual validator to state

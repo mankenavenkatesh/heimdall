@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
-	"strconv"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -505,29 +504,6 @@ func (k *Keeper) IterateValidatorAccountsAndApplyFn(ctx sdk.Context, f func(vali
 			return
 		}
 	}
-}
-
-// GetAllValidatorRewards returns validator reward map
-func (k *Keeper) GetAllValidatorRewards(ctx sdk.Context) map[types.ValidatorID]*big.Int {
-	store := ctx.KVStore(k.storeKey)
-	valRewardMap := make(map[types.ValidatorID]*big.Int)
-	iterator := sdk.KVStorePrefixIterator(store, ValidatorRewardMapKey)
-	defer iterator.Close()
-	for ; iterator.Valid(); iterator.Next() {
-		val := iterator.Value()
-		// // unmarshalling val
-		reward := big.NewInt(0).SetBytes(val)
-
-		// unmarshalling key
-		valID, err := strconv.ParseUint(string(iterator.Key()[len(ValidatorRewardMapKey):]), 10, 64)
-		if err != nil {
-			k.Logger(ctx).Debug("Error while parsing ValId",
-				"valID", string(iterator.Key()[len(ValidatorRewardMapKey):]),
-			)
-		}
-		valRewardMap[types.ValidatorID(valID)] = reward
-	}
-	return valRewardMap
 }
 
 // CalculateSignerRewards calculates new rewards for signers

@@ -1,5 +1,11 @@
 package types
 
+import (
+	"math/big"
+
+	hmTyps "github.com/maticnetwork/heimdall/types"
+)
+
 // query endpoints supported by the staking Querier
 const (
 	QueryValidatorStatus      = "validator-status"
@@ -16,8 +22,6 @@ type ValidatorSlashParams struct {
 	ValID       hmTyps.ValidatorID
 	SlashAmount *big.Int
 }
-
-
 
 // NewQueryValidatorStatusParams creates a new instance of QueryValidatorStatusParams.
 func NewQueryValidatorStatusParams(signerAddress []byte) QueryValidatorStatusParams {

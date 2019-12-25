@@ -243,7 +243,7 @@ func handleMsgCheckpointAck(ctx sdk.Context, msg MsgCheckpointAck, k Keeper, con
 	k.Logger(ctx).Info("Signer Rewards updated to store")
 
 	// Calculate new account root hash
-	valRewardMap := k.sk.GetAllValidatorAccounts(ctx)
+	valAccounts := k.sk.GetAllValidatorAccounts(ctx)
 	k.Logger(ctx).Debug("validatoraccounts of all validators", "valAccounts", valAccounts)
 	accountRoot, err := GetAccountRootHash(valAccounts)
 	k.Logger(ctx).Info("Validator Account root hash generated", "AccountRootHash", types.BytesToHeimdallHash(accountRoot).String())
