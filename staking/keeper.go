@@ -23,7 +23,7 @@ var (
 	ValidatorsKey          = []byte{0x21} // prefix for each key to a validator
 	ValidatorMapKey        = []byte{0x22} // prefix for each key for validator map
 	CurrentValidatorSetKey = []byte{0x23} // Key to store current validator set
-	ValidatorRewardMapKey  = []byte{0x16} // prefix for each key for Validator Reward Map
+	ValidatorAccountMapKey = []byte{0x16} // prefix for each key for Validator Account Map
 
 )
 
@@ -88,9 +88,9 @@ func GetValidatorMapKey(address []byte) []byte {
 	return append(ValidatorMapKey, address...)
 }
 
-// GetValidatorRewardMapKey returns validator reward map
-func GetValidatorRewardMapKey(valID []byte) []byte {
-	return append(ValidatorRewardMapKey, valID...)
+// GetValidatorAccountMapKey returns validator account map
+func GetValidatorAccountMapKey(valID []byte) []byte {
+	return append(ValidatorAccountMapKey, valID...)
 }
 
 // AddValidator adds validator indexed with address
@@ -361,25 +361,150 @@ func (k *Keeper) GetLastUpdated(ctx sdk.Context, valID types.ValidatorID) (updat
 	return validator.LastUpdated, true
 }
 
-// SetValidatorIDToReward will update valid with new reward
-func (k *Keeper) SetValidatorIDToReward(ctx sdk.Context, valID types.ValidatorID, reward *big.Int) {
+// RewardValidator will update validator account with new reward
+func (k *Keeper) RewardValidator(ctx sdk.Context, valID types.ValidatorID, reward *big.Int) (err error) {
+	var validatorAccount types.ValidatorAccount
+	if k.CheckIfValidatorAccountExists(ctx, valID) {
+		validatorAccount, err = k.GetValidatorAccountByValID(ctx, valID)
+		if err != nil {
+			return err
+		}
+	} else {
+		validatorAccount = types.ValidatorAccount{
+			ID:            valID,
+			RewardAmount:  big.NewInt(0).String(),
+			SlashedAmount: big.NewInt(0).String(),
+		}
+	}
+
 	// Add reward to reward balance
-	store := ctx.KVStore(k.storeKey)
-	rewardBalance := k.GetRewardByValidatorID(ctx, valID)
-	totalReward := big.NewInt(0).Add(reward, rewardBalance)
-	store.Set(GetValidatorRewardMapKey(valID.Bytes()), totalReward.Bytes())
+	rewardBalance, _ := big.NewInt(0).SetString(validatorAccount.RewardAmount, 10)
+	updatedReward := big.NewInt(0).Add(reward, rewardBalance)
+	validatorAccount.RewardAmount = updatedReward.String()
+	err = k.AddValidatorAccount(ctx, validatorAccount)
+	return
 }
 
 // GetRewardByValidatorID Returns Total Rewards of Validator
-func (k *Keeper) GetRewardByValidatorID(ctx sdk.Context, valID types.ValidatorID) *big.Int {
-	store := ctx.KVStore(k.storeKey)
-	key := GetValidatorRewardMapKey(valID.Bytes())
-	if store.Has(key) {
-		// get current reward for validatorId
-		rewardBalance := big.NewInt(0).SetBytes(store.Get(key))
-		return rewardBalance
+func (k *Keeper) GetRewardByValidatorID(ctx sdk.Context, valID types.ValidatorID) (*big.Int, error) {
+	validatorAccount, err := k.GetValidatorAccountByValID(ctx, valID)
+	if err != nil {
+		return big.NewInt(0), err
 	}
-	return big.NewInt(0)
+	validatorReward, _ := big.NewInt(0).SetString(validatorAccount.RewardAmount, 10)
+	return validatorReward, nil
+}
+
+// SlashValidator will update validatoraccount with new slashed amount
+func (k *Keeper) SlashValidator(ctx sdk.Context, valID types.ValidatorID, slashAmount *big.Int) (err error) {
+	k.Logger(ctx).Info("Slashing validator - ", "valID", valID, "slashAmount", slashAmount)
+	var validatorAccount types.ValidatorAccount
+	if k.CheckIfValidatorAccountExists(ctx, valID) {
+		validatorAccount, err = k.GetValidatorAccountByValID(ctx, valID)
+		if err != nil {
+			return err
+		}
+	} else {
+		validatorAccount = types.ValidatorAccount{
+			ID:            valID,
+			RewardAmount:  big.NewInt(0).String(),
+			SlashedAmount: big.NewInt(0).String(),
+		}
+	}
+
+	// Add slashamount to slash balance
+	slashBalance, _ := big.NewInt(0).SetString(validatorAccount.SlashedAmount, 10)
+	updatedSlash := big.NewInt(0).Add(slashAmount, slashBalance)
+	validatorAccount.SlashedAmount = updatedSlash.String()
+	k.Logger(ctx).Info("Validator account after slashing - ", "valaccount", validatorAccount)
+	err = k.AddValidatorAccount(ctx, validatorAccount)
+	return
+}
+
+// GetSlashedAmountByValidatorID returns total slashed amount of validator
+func (k *Keeper) GetSlashedAmountByValidatorID(ctx sdk.Context, valID types.ValidatorID) (*big.Int, error) {
+	validatorAccount, err := k.GetValidatorAccountByValID(ctx, valID)
+	if err != nil {
+		return big.NewInt(0), err
+	}
+
+	slashedAmount, _ := big.NewInt(0).SetString(validatorAccount.SlashedAmount, 10)
+	return slashedAmount, nil
+}
+
+// GetValidatorAccountByValID will return ValidatorAccount of valID
+func (k *Keeper) GetValidatorAccountByValID(ctx sdk.Context, valID types.ValidatorID) (validatorAccount types.ValidatorAccount, err error) {
+
+	// check if validator account exists
+	if !k.CheckIfValidatorAccountExists(ctx, valID) {
+		return validatorAccount, errors.New("Validator Account not found")
+	}
+
+	store := ctx.KVStore(k.storeKey)
+	key := GetValidatorAccountMapKey(valID.Bytes())
+
+	// unmarshall validator account and return
+	validatorAccount, err = types.UnMarshallValidatorAccount(k.cdc, store.Get(key))
+	if err != nil {
+		return validatorAccount, err
+	}
+
+	return validatorAccount, nil
+}
+
+// CheckIfValidatorAccountExists will return true if validator account exists
+func (k *Keeper) CheckIfValidatorAccountExists(ctx sdk.Context, valID types.ValidatorID) (ok bool) {
+	store := ctx.KVStore(k.storeKey)
+	key := GetValidatorAccountMapKey(valID.Bytes())
+	if !store.Has(key) {
+		return false
+	}
+	return true
+}
+
+// AddValidatorAccount adds ValidatorAccount index with ValID
+func (k *Keeper) AddValidatorAccount(ctx sdk.Context, validatorAccount types.ValidatorAccount) error {
+	store := ctx.KVStore(k.storeKey)
+	// marshall validator account
+	bz, err := types.MarshallValidatorAccount(k.cdc, validatorAccount)
+	if err != nil {
+		return err
+	}
+
+	store.Set(GetValidatorAccountMapKey(validatorAccount.ID.Bytes()), bz)
+	k.Logger(ctx).Debug("ValidatorAccount Stored", "key", hex.EncodeToString(GetValidatorAccountMapKey(validatorAccount.ID.Bytes())), "validatoraccount", validatorAccount.String())
+	return nil
+}
+
+// GetAllValidatorAccounts returns all validatorAccounts
+func (k *Keeper) GetAllValidatorAccounts(ctx sdk.Context) (validatorAccounts []types.ValidatorAccount) {
+	// iterate through validatorAccounts and create validatorAccounts update array
+	k.IterateValidatorAccountsAndApplyFn(ctx, func(validatorAccount types.ValidatorAccount) error {
+		// append to list of validatorUpdates
+		validatorAccounts = append(validatorAccounts, validatorAccount)
+		return nil
+	})
+
+	return
+}
+
+// IterateValidatorAccountsAndApplyFn iterate validatorAccounts and apply the given function.
+func (k *Keeper) IterateValidatorAccountsAndApplyFn(ctx sdk.Context, f func(validatorAccount types.ValidatorAccount) error) {
+	store := ctx.KVStore(k.storeKey)
+
+	// get validator iterator
+	iterator := sdk.KVStorePrefixIterator(store, ValidatorAccountMapKey)
+	defer iterator.Close()
+
+	// loop through validatoraccounts
+	for ; iterator.Valid(); iterator.Next() {
+		// unmarshall validatoraccount
+		validatorAccount, _ := types.UnMarshallValidatorAccount(k.cdc, iterator.Value())
+		// call function and return if required
+		if err := f(validatorAccount); err != nil {
+			return
+		}
+	}
 }
 
 // GetAllValidatorRewards returns validator reward map
@@ -467,7 +592,7 @@ func (k *Keeper) CalculateSignerRewards(ctx sdk.Context, voteBytes []byte, sigIn
 // UpdateValidatorRewards Updates validators with Rewards
 func (k *Keeper) UpdateValidatorRewards(ctx sdk.Context, valrewards map[types.ValidatorID]*big.Int) {
 	for valID, reward := range valrewards {
-		k.SetValidatorIDToReward(ctx, valID, reward)
+		k.RewardValidator(ctx, valID, reward)
 	}
 }
 

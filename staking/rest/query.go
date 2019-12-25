@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strconv"
 
@@ -39,6 +40,10 @@ func registerQueryRoutes(cliCtx context.CLIContext, r *mux.Router, cdc *codec.Co
 		validatorSetHandlerFn(cdc, cliCtx),
 	).Methods("GET")
 	r.HandleFunc(
+		"/staking/validator-account/{id}",
+		validatorAccountByIDHandlerFn(cdc, cliCtx),
+	).Methods("GET")
+	r.HandleFunc(
 		"/staking/proposer/{times}",
 		proposerHandlerFn(cdc, cliCtx),
 	).Methods("GET")
@@ -47,8 +52,12 @@ func registerQueryRoutes(cliCtx context.CLIContext, r *mux.Router, cdc *codec.Co
 		currentProposerHandlerFn(cdc, cliCtx),
 	).Methods("GET")
 	r.HandleFunc(
-		"/staking/initial-reward-root",
-		initialRewardRootHandlerFn(cdc, cliCtx),
+		"/staking/slash-validator",
+		slashValidatorHandlerFn(cdc, cliCtx),
+	).Methods("GET")
+	r.HandleFunc(
+		"/staking/initial-account-root",
+		initialAccountRootHandlerFn(cdc, cliCtx),
 	).Methods("GET")
 	r.HandleFunc(
 		"/staking/proposer-bonus-percent",
@@ -223,6 +232,45 @@ func validatorSetHandlerFn(
 	}
 }
 
+// get validatoraccount by valID
+func validatorAccountByIDHandlerFn(
+	cdc *codec.Codec,
+	cliCtx context.CLIContext,
+) http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+
+		// get id
+		id, ok := rest.ParseUint64OrReturnBadRequest(w, vars["id"])
+		if !ok {
+			return
+		}
+
+		res, err := cliCtx.QueryStore(staking.GetValidatorAccountMapKey(hmTypes.NewValidatorID(id).Bytes()), "staking")
+		if err != nil {
+			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
+		}
+
+		if len(res) == 0 {
+			rest.WriteErrorResponse(w, http.StatusNoContent, errors.New("no content found for requested key").Error())
+		}
+
+		var _valAccount hmTypes.ValidatorAccount
+
+		cdc.UnmarshalBinaryBare(res, &_valAccount)
+
+		result, err := json.Marshal(&_valAccount)
+		if err != nil {
+			RestLogger.Error("Error while marshalling response to Json", "error", err)
+			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		rest.PostProcessResponse(w, cliCtx, result)
+	}
+}
+
 // get proposer for current validator set
 func proposerHandlerFn(
 	cdc *codec.Codec,
@@ -316,31 +364,31 @@ func currentProposerHandlerFn(
 	}
 }
 
-// initialRewardRootHandlerFn returns genesis rewardroothash
-func initialRewardRootHandlerFn(
+// initialAccountRootHandlerFn returns genesis accountroothash
+func initialAccountRootHandlerFn(
 	cdc *codec.Codec,
 	cliCtx context.CLIContext,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/%s", checkpointTypes.QuerierRoute, checkpoint.QueryInitialRewardRoot), nil)
-		RestLogger.Debug("initial rewardRootHash querier response", "res", res)
+		res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/%s", checkpointTypes.QuerierRoute, checkpoint.QueryInitialAccountRoot), nil)
+		RestLogger.Debug("initial accountRootHash querier response", "res", res)
 
 		if err != nil {
-			RestLogger.Error("Error while calculating Initial Rewardroot ", "Error", err.Error())
+			RestLogger.Error("Error while calculating Initial AccountRoot  ", "Error", err.Error())
 			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
 		if len(res) == 0 {
-			RestLogger.Error("RewardRootHash not found ", "Error", err.Error())
-			rest.WriteErrorResponse(w, http.StatusBadRequest, errors.New("RewardRootHash not found").Error())
+			RestLogger.Error("AccountRootHash not found ", "Error", err.Error())
+			rest.WriteErrorResponse(w, http.StatusBadRequest, errors.New("AccountRootHash not found").Error())
 			return
 		}
 
-		var rewardRootHash = hmTypes.BytesToHeimdallHash(res)
-		RestLogger.Debug("Fetched initial rewardRootHash ", "rewardRootHash", rewardRootHash)
+		var accountRootHash = hmTypes.BytesToHeimdallHash(res)
+		RestLogger.Debug("Fetched initial accountRootHash ", "AccountRootHash", accountRootHash)
 
-		result, err := json.Marshal(&rewardRootHash)
+		result, err := json.Marshal(&accountRootHash)
 		if err != nil {
 			RestLogger.Error("Error while marshalling response to Json", "error", err)
 			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
@@ -348,6 +396,46 @@ func initialRewardRootHandlerFn(
 		}
 
 		rest.PostProcessResponse(w, cliCtx, result)
+	}
+}
+
+func slashValidatorHandlerFn(
+	cdc *codec.Codec,
+	cliCtx context.CLIContext,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		params := r.URL.Query()
+		valID, ok := rest.ParseUint64OrReturnBadRequest(w, params.Get("val_id"))
+		if !ok {
+			return
+		}
+
+		slashAmount, ok := big.NewInt(0).SetString(params.Get("slash_amount"), 10)
+		if !ok {
+			return
+		}
+
+		RestLogger.Info("Slashing validator - ", "valID", valID, "slashAmount", slashAmount)
+
+		slashingParams := stakingTypes.NewValidatorSlashParams(types.ValidatorID(valID), slashAmount)
+
+		bz, err := cliCtx.Codec.MarshalJSON(slashingParams)
+		if err != nil {
+			RestLogger.Info("Error marshallingSlashing Params - ", "err", err)
+			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/%s", stakingTypes.QuerierRoute, staking.QuerySlashValidator), bz)
+		if err != nil {
+			RestLogger.Info("Error query data - ", "err", err)
+			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		RestLogger.Info("slashedd validator successfully ", "res", res)
+		rest.PostProcessResponse(w, cliCtx, res)
 	}
 }
 

@@ -33,35 +33,40 @@ func (v *GenesisValidator) HeimdallValidator() hmTypes.Validator {
 
 // GenesisState is the checkpoint state that must be provided at genesis.
 type GenesisState struct {
-	Validators           []*hmTypes.Validator           `json:"validators" yaml:"validators"`
-	CurrentValSet        hmTypes.ValidatorSet           `json:"current_val_set" yaml:"current_val_set"`
-	ValidatorRewards     map[types.ValidatorID]*big.Int `json:"val_rewards" yaml:"val_rewards"`
-	ProposerBonusPercent int64                          `json:"proposer_bonus_percent" yaml:"proposer_bonus_percent"`
+	Validators           []*hmTypes.Validator       `json:"validators" yaml:"validators"`
+	CurrentValSet        hmTypes.ValidatorSet       `json:"current_val_set" yaml:"current_val_set"`
+	ValidatorAccounts    []hmTypes.ValidatorAccount `json:"val_accounts" yaml:"val_accounts"`
+	ProposerBonusPercent int64                      `json:"proposer_bonus_percent" yaml:"proposer_bonus_percent"`
 }
 
 // NewGenesisState creates a new genesis state.
 func NewGenesisState(
 	validators []*hmTypes.Validator,
 	currentValSet hmTypes.ValidatorSet,
-	validatorRewards map[types.ValidatorID]*big.Int,
+	validatorAccounts []hmTypes.ValidatorAccount,
 	proposerBonusPercent int64,
 
 ) GenesisState {
 	return GenesisState{
 		Validators:           validators,
 		CurrentValSet:        currentValSet,
-		ValidatorRewards:     validatorRewards,
+		ValidatorAccounts:    validatorAccounts,
 		ProposerBonusPercent: proposerBonusPercent,
 	}
 }
 
 // DefaultGenesisState returns a default genesis state
 func DefaultGenesisState(validators []*hmTypes.Validator, currentValSet hmTypes.ValidatorSet) GenesisState {
-	validatorRewards := make(map[types.ValidatorID]*big.Int)
+	var validatorAccounts []hmTypes.ValidatorAccount
 	for _, val := range validators {
-		validatorRewards[val.ID] = big.NewInt(0)
+		valAccount := hmTypes.ValidatorAccount{
+			ID:            val.ID,
+			RewardAmount:  big.NewInt(0).String(),
+			SlashedAmount: big.NewInt(0).String(),
+		}
+		validatorAccounts = append(validatorAccounts, valAccount)
 	}
-	return NewGenesisState(validators, currentValSet, validatorRewards, DefaultProposerBonusPercent)
+	return NewGenesisState(validators, currentValSet, validatorAccounts, DefaultProposerBonusPercent)
 }
 
 // InitGenesis sets distribution information for genesis.
@@ -90,15 +95,31 @@ func InitGenesis(ctx sdk.Context, keeper Keeper, data GenesisState) {
 		panic(err)
 	}
 
-	// Add rewards for initial validators
-	for _, validator := range data.Validators {
-		if _, ok := data.ValidatorRewards[validator.ID]; ok {
-			validatorRewards[validator.ID] = data.ValidatorRewards[validator.ID]
-		} else {
-			validatorRewards[validator.ID] = big.NewInt(0)
+	// Add genesis validator accounts
+	for _, validator := range resultValSet.Validators {
+		// check if validator exists in data.ValidatorAccounts
+		isExist := false
+		// Add validator account from genesis
+		for _, valAccount := range data.ValidatorAccounts {
+			if valAccount.ID == validator.ID {
+				isExist = true
+				if err := keeper.AddValidatorAccount(ctx, valAccount); err != nil {
+					panic((err))
+				}
+			}
+		}
+		// Create Validator Account if not set in genesis
+		if !isExist {
+			validatorAccount := types.ValidatorAccount{
+				ID:            validator.ID,
+				RewardAmount:  big.NewInt(0).String(),
+				SlashedAmount: big.NewInt(0).String(),
+			}
+			if err := keeper.AddValidatorAccount(ctx, validatorAccount); err != nil {
+				panic((err))
+			}
 		}
 	}
-	keeper.UpdateValidatorRewards(ctx, validatorRewards)
 
 	keeper.SetProposerBonusPercent(ctx, data.ProposerBonusPercent)
 }
@@ -109,7 +130,7 @@ func ExportGenesis(ctx sdk.Context, keeper Keeper) GenesisState {
 	return NewGenesisState(
 		keeper.GetAllValidators(ctx),
 		keeper.GetValidatorSet(ctx),
-		keeper.GetAllValidatorRewards(ctx),
+		keeper.GetAllValidatorAccounts(ctx),
 		keeper.GetProposerBonusPercent(ctx),
 	)
 }

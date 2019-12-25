@@ -45,7 +45,7 @@ const (
 	LatestSpanURL         = "/bor/latest-span"
 	SpanProposerURL       = "/bor/span-proposer"
 	NextSpanInfoURL       = "/bor/prepare-next-span"
-	InitialRewardRootURL  = "/staking/initial-reward-root"
+	InitialAccountRootURL = "/staking/initial-account-root"
 	ValidatorURL          = "/staking/validator/%v"
 
 	TransactionTimeout = 1 * time.Minute
