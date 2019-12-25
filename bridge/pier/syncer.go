@@ -26,6 +26,7 @@ import (
 	"github.com/maticnetwork/heimdall/contracts/rootchain"
 	"github.com/maticnetwork/heimdall/contracts/stakemanager"
 	"github.com/maticnetwork/heimdall/contracts/statesender"
+	"github.com/maticnetwork/heimdall/delegation"
 	"github.com/maticnetwork/heimdall/helper"
 	"github.com/maticnetwork/heimdall/staking"
 	hmTypes "github.com/maticnetwork/heimdall/types"
@@ -302,8 +303,10 @@ func (syncer *Syncer) processHeader(newHeader *types.Header) {
 					syncer.processJailedEvent(selectedEvent.Name, abiObject, &vLog)
 				case "StateSynced":
 					syncer.processStateSyncedEvent(selectedEvent.Name, abiObject, &vLog)
-				case "Bonding":
-					syncer.processDelegatorBondEvent(selectedEvent.Name, abiObject, &vLog)
+				case "DelegatorStaked":
+					syncer.processDelegatorStakedEvent(selectedEvent.Name, abiObject, &vLog)
+					// case "Bonding":
+					// 	syncer.processDelegatorBondEvent(selectedEvent.Name, abiObject, &vLog)
 					// case "Withdraw":
 					// 	syncer.processWithdrawEvent(selectedEvent.Name, abiObject, &vLog)
 				}
@@ -554,24 +557,25 @@ func (syncer *Syncer) processStateSyncedEvent(eventName string, abiObject *abi.A
 }
 
 // Delegation Events
-func (syncer *Syncer) processDelegatorBondEvent(eventName string, abiObject *abi.ABI, vLog *types.Log) {
-	event := new(delegationmanager.DelegationmanagerBonding)
+func (syncer *Syncer) processDelegatorStakedEvent(eventName string, abiObject *abi.ABI, vLog *types.Log) {
+	event := new(delegationmanager.DelegationmanagerDelegatorStaked)
 	if err := helper.UnpackLog(abiObject, event, eventName, vLog); err != nil {
 		logEventParseError(syncer.Logger, eventName, err)
 	} else {
 		syncer.Logger.Debug(
 			"New event found",
 			"event", eventName,
+			"user", event.User,
 			"DelegatorId", event.DelegatorId,
-			"ValidatorId", event.ValidatorId,
+			"ActivatonEpoch", event.ActivatonEpoch,
 			"Amount", event.Amount,
 		)
 
-		msg := clerkTypes.NewMsgEventRecord(
+		msg := delegation.NewMsgDelegatorJoin(
 			hmTypes.BytesToHeimdallAddress(helper.GetAddress()),
+			event.DelegatorId.Uint64(),
 			hmTypes.BytesToHeimdallHash(vLog.TxHash.Bytes()),
 			uint64(vLog.Index),
-			event.DelegatorId.Uint64(),
 		)
 
 		// broadcast to heimdall
@@ -579,6 +583,32 @@ func (syncer *Syncer) processDelegatorBondEvent(eventName string, abiObject *abi
 
 	}
 }
+
+// func (syncer *Syncer) processDelegatorBondEvent(eventName string, abiObject *abi.ABI, vLog *types.Log) {
+// 	event := new(delegationmanager.DelegationmanagerBonding)
+// 	if err := helper.UnpackLog(abiObject, event, eventName, vLog); err != nil {
+// 		logEventParseError(syncer.Logger, eventName, err)
+// 	} else {
+// 		syncer.Logger.Debug(
+// 			"New event found",
+// 			"event", eventName,
+// 			"DelegatorId", event.DelegatorId,
+// 			"ValidatorId", event.ValidatorId,
+// 			"Amount", event.Amount,
+// 		)
+
+// 		msg := delegation.NewMsgDelegatorJoin(
+// 			hmTypes.BytesToHeimdallAddress(helper.GetAddress()),
+// 			event.DelegatorId,
+// 			txhash types.HeimdallHash,
+// 			logIndex uint64,
+// 		)
+
+// 		// broadcast to heimdall
+// 		syncer.queueConnector.BroadcastToHeimdall(msg)
+
+// 	}
+// }
 
 //
 // Utils

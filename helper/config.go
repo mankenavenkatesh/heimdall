@@ -228,11 +228,12 @@ func GetDefaultHeimdallConfig() Configuration {
 		AmqpURL:           DefaultAmqpURL,
 		HeimdallServerURL: DefaultHeimdallServerURL,
 
-		StakeManagerAddress:  (common.Address{}).Hex(),
-		RootchainAddress:     (common.Address{}).Hex(),
-		StateSenderAddress:   (common.Address{}).Hex(),
-		StateReceiverAddress: DefaultStateReceiverAddress,
-		ValidatorSetAddress:  DefaultValidatorSetAddress,
+		StakeManagerAddress:      (common.Address{}).Hex(),
+		RootchainAddress:         (common.Address{}).Hex(),
+		DelegationManagerAddress: (common.Address{}).Hex(),
+		StateSenderAddress:       (common.Address{}).Hex(),
+		StateReceiverAddress:     DefaultStateReceiverAddress,
+		ValidatorSetAddress:      DefaultValidatorSetAddress,
 
 		ChildBlockInterval: DefaultChildBlockInterval,
 

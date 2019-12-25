@@ -311,6 +311,7 @@ func MakeCodec() *codec.Codec {
 
 	checkpoint.RegisterCodec(cdc)
 	staking.RegisterCodec(cdc)
+	delegation.RegisterCodec(cdc)
 	bor.RegisterCodec(cdc)
 	clerkTypes.RegisterCodec(cdc)
 
@@ -326,6 +327,7 @@ func MakePulp() *authTypes.Pulp {
 	bankTypes.RegisterPulp(pulp)
 	checkpoint.RegisterPulp(pulp)
 	staking.RegisterPulp(pulp)
+	delegation.RegisterPulp(pulp)
 	bor.RegisterPulp(pulp)
 	clerkTypes.RegisterPulp(pulp)
 
@@ -410,6 +412,7 @@ func (app *HeimdallApp) initFromGenesisState(ctx sdk.Context, genesisState Genes
 	bor.InitGenesis(ctx, app.borKeeper, genesisState.BorData)
 	// staking should be initialized before checkpoint as checkpoint genesis initialization may depend on staking genesis. [eg.. rewardroot calculation]
 	staking.InitGenesis(ctx, app.stakingKeeper, genesisState.StakingData)
+	// delegation.InitGenesis(ctx, app.delegationKeeper, genesisState.De),
 	checkpoint.InitGenesis(ctx, app.checkpointKeeper, genesisState.CheckpointData)
 	clerk.InitGenesis(ctx, app.clerkKeeper, genesisState.ClerkData)
 	// validate genesis state
