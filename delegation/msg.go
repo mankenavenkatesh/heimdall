@@ -3,7 +3,7 @@ package delegation
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-
+	hmCommon "github.com/maticnetwork/heimdall/common"
 	delegationTypes "github.com/maticnetwork/heimdall/delegation/types"
 	"github.com/maticnetwork/heimdall/types"
 )
@@ -17,19 +17,22 @@ var cdc = codec.New()
 var _ sdk.Msg = &MsgDelegatorJoin{}
 
 type MsgDelegatorJoin struct {
-	ID       types.DelegatorID  `json:"id"`
-	TxHash   types.HeimdallHash `json:"tx_hash"`
-	LogIndex uint64             `json:"log_index"`
+	From     types.HeimdallAddress `json:"from"`
+	ID       types.DelegatorID     `json:"id"`
+	TxHash   types.HeimdallHash    `json:"tx_hash"`
+	LogIndex uint64                `json:"log_index"`
 }
 
 // NewMsgDelegatorJoin creates new delegator-join
 func NewMsgDelegatorJoin(
+	from types.HeimdallAddress,
 	id uint64,
 	txhash types.HeimdallHash,
 	logIndex uint64,
 ) MsgDelegatorJoin {
 
 	return MsgDelegatorJoin{
+		From:     from,
 		ID:       types.NewDelegatorID(id),
 		TxHash:   txhash,
 		LogIndex: logIndex,
@@ -44,172 +47,201 @@ func (msg MsgDelegatorJoin) Route() string {
 	return delegationTypes.RouterKey
 }
 
-//
-// Delegator stake update
-//
-
-var _ sdk.Msg = &MsgDelegatorStakeUpdate{}
-
-type MsgDelegatorStakeUpdate struct {
-	ID       types.DelegatorID  `json:"id"`
-	TxHash   types.HeimdallHash `json:"tx_hash"`
-	LogIndex uint64             `json:"log_index"`
+func (msg MsgDelegatorJoin) GetSigners() []sdk.AccAddress {
+	return []sdk.AccAddress{types.HeimdallAddressToAccAddress(msg.From)}
 }
 
-// NewMsgDelegatorStakeUpdate creates new delegator-stake-update
-func NewMsgDelegatorStakeUpdate(
-	id uint64,
-	txhash types.HeimdallHash,
-	logIndex uint64,
-) MsgDelegatorStakeUpdate {
-
-	return MsgDelegatorStakeUpdate{
-		ID:       types.NewDelegatorID(id),
-		TxHash:   txhash,
-		LogIndex: logIndex,
+func (msg MsgDelegatorJoin) GetSignBytes() []byte {
+	b, err := cdc.MarshalJSON(msg)
+	if err != nil {
+		panic(err)
 	}
+	return sdk.MustSortJSON(b)
 }
 
-func (msg MsgDelegatorStakeUpdate) Type() string {
-	return "delegator-stake-update"
-}
-
-func (msg MsgDelegatorStakeUpdate) Route() string {
-	return delegationTypes.RouterKey
-}
-
-//
-// Delegator Join
-//
-
-var _ sdk.Msg = &MsgDelegatorUnstake{}
-
-type MsgDelegatorUnstake struct {
-	ID       types.DelegatorID  `json:"id"`
-	TxHash   types.HeimdallHash `json:"tx_hash"`
-	LogIndex uint64             `json:"log_index"`
-}
-
-// NewMsgDelegatorUnstake creates new delegator-unstake
-func NewMsgDelegatorUnstake(
-	id uint64,
-	txhash types.HeimdallHash,
-	logIndex uint64,
-) MsgDelegatorUnstake {
-
-	return MsgDelegatorUnstake{
-		ID:       types.NewDelegatorID(id),
-		TxHash:   txhash,
-		LogIndex: logIndex,
+func (msg MsgDelegatorJoin) ValidateBasic() sdk.Error {
+	if msg.ID <= 0 {
+		return hmCommon.ErrInvalidMsg(hmCommon.DefaultCodespace, "Invalid delegator ID %v", msg.ID)
 	}
-}
 
-func (msg MsgDelegatorUnstake) Type() string {
-	return "delegator-unstake"
-}
-
-func (msg MsgDelegatorUnstake) Route() string {
-	return delegationTypes.RouterKey
-}
-
-//
-// Delegator Bond
-//
-
-var _ sdk.Msg = &MsgDelegatorBond{}
-
-type MsgDelegatorBond struct {
-	ID       types.DelegatorID  `json:"id"`
-	TxHash   types.HeimdallHash `json:"tx_hash"`
-	LogIndex uint64             `json:"log_index"`
-}
-
-// NewMsgDelegatorBond creates new delegator-bond
-func NewMsgDelegatorBond(
-	id uint64,
-	txhash types.HeimdallHash,
-	logIndex uint64,
-) MsgDelegatorBond {
-
-	return MsgDelegatorBond{
-		ID:       types.NewDelegatorID(id),
-		TxHash:   txhash,
-		LogIndex: logIndex,
+	if msg.From.Empty() {
+		return hmCommon.ErrInvalidMsg(hmCommon.DefaultCodespace, "Invalid proposer %v", msg.From.String())
 	}
+
+	return nil
 }
 
-func (msg MsgDelegatorBond) Type() string {
-	return "delegator-bond"
-}
+// //
+// // Delegator stake update
+// //
 
-func (msg MsgDelegatorBond) Route() string {
-	return delegationTypes.RouterKey
-}
+// var _ sdk.Msg = &MsgDelegatorStakeUpdate{}
 
-//
-// Delegator Unbond
-//
+// type MsgDelegatorStakeUpdate struct {
+// 	From     types.HeimdallAddress `json:"from"`
+// 	ID       types.DelegatorID     `json:"id"`
+// 	TxHash   types.HeimdallHash    `json:"tx_hash"`
+// 	LogIndex uint64                `json:"log_index"`
+// }
 
-var _ sdk.Msg = &MsgDelegatorUnBond{}
+// // NewMsgDelegatorStakeUpdate creates new delegator-stake-update
+// func NewMsgDelegatorStakeUpdate(
+// 	id uint64,
+// 	txhash types.HeimdallHash,
+// 	logIndex uint64,
+// ) MsgDelegatorStakeUpdate {
 
-type MsgDelegatorUnBond struct {
-	ID       types.DelegatorID  `json:"id"`
-	TxHash   types.HeimdallHash `json:"tx_hash"`
-	LogIndex uint64             `json:"log_index"`
-}
+// 	return MsgDelegatorStakeUpdate{
+// 		ID:       types.NewDelegatorID(id),
+// 		TxHash:   txhash,
+// 		LogIndex: logIndex,
+// 	}
+// }
 
-// NewMsgDelegatorUnBond creates new delegator-unbond
-func NewMsgDelegatorUnBond(
-	id uint64,
-	txhash types.HeimdallHash,
-	logIndex uint64,
-) MsgDelegatorUnBond {
+// func (msg MsgDelegatorStakeUpdate) Type() string {
+// 	return "delegator-stake-update"
+// }
 
-	return MsgDelegatorUnBond{
-		ID:       types.NewDelegatorID(id),
-		TxHash:   txhash,
-		LogIndex: logIndex,
-	}
-}
+// func (msg MsgDelegatorStakeUpdate) Route() string {
+// 	return delegationTypes.RouterKey
+// }
 
-func (msg MsgDelegatorUnBond) Type() string {
-	return "delegator-unbond"
-}
+// //
+// // Delegator Join
+// //
 
-func (msg MsgDelegatorUnBond) Route() string {
-	return delegationTypes.RouterKey
-}
+// var _ sdk.Msg = &MsgDelegatorUnstake{}
 
-//
-// Delegator ReBond
-//
+// type MsgDelegatorUnstake struct {
+// 	From     types.HeimdallAddress `json:"from"`
+// 	ID       types.DelegatorID     `json:"id"`
+// 	TxHash   types.HeimdallHash    `json:"tx_hash"`
+// 	LogIndex uint64                `json:"log_index"`
+// }
 
-var _ sdk.Msg = &MsgDelegatorRebond{}
+// // NewMsgDelegatorUnstake creates new delegator-unstake
+// func NewMsgDelegatorUnstake(
+// 	id uint64,
+// 	txhash types.HeimdallHash,
+// 	logIndex uint64,
+// ) MsgDelegatorUnstake {
 
-type MsgDelegatorRebond struct {
-	ID       types.DelegatorID  `json:"id"`
-	TxHash   types.HeimdallHash `json:"tx_hash"`
-	LogIndex uint64             `json:"log_index"`
-}
+// 	return MsgDelegatorUnstake{
+// 		ID:       types.NewDelegatorID(id),
+// 		TxHash:   txhash,
+// 		LogIndex: logIndex,
+// 	}
+// }
 
-// NewMsgDelegatorRebond creates new delegator-restake
-func NewMsgDelegatorRebond(
-	id uint64,
-	txhash types.HeimdallHash,
-	logIndex uint64,
-) MsgDelegatorRebond {
+// func (msg MsgDelegatorUnstake) Type() string {
+// 	return "delegator-unstake"
+// }
 
-	return MsgDelegatorRebond{
-		ID:       types.NewDelegatorID(id),
-		TxHash:   txhash,
-		LogIndex: logIndex,
-	}
-}
+// func (msg MsgDelegatorUnstake) Route() string {
+// 	return delegationTypes.RouterKey
+// }
 
-func (msg MsgDelegatorRebond) Type() string {
-	return "delegator-rebond"
-}
+// //
+// // Delegator Bond
+// //
 
-func (msg MsgDelegatorRebond) Route() string {
-	return delegationTypes.RouterKey
-}
+// var _ sdk.Msg = &MsgDelegatorBond{}
+
+// type MsgDelegatorBond struct {
+// 	From     types.HeimdallAddress `json:"from"`
+// 	ID       types.DelegatorID     `json:"id"`
+// 	TxHash   types.HeimdallHash    `json:"tx_hash"`
+// 	LogIndex uint64                `json:"log_index"`
+// }
+
+// // NewMsgDelegatorBond creates new delegator-bond
+// func NewMsgDelegatorBond(
+// 	id uint64,
+// 	txhash types.HeimdallHash,
+// 	logIndex uint64,
+// ) MsgDelegatorBond {
+
+// 	return MsgDelegatorBond{
+// 		ID:       types.NewDelegatorID(id),
+// 		TxHash:   txhash,
+// 		LogIndex: logIndex,
+// 	}
+// }
+
+// func (msg MsgDelegatorBond) Type() string {
+// 	return "delegator-bond"
+// }
+
+// func (msg MsgDelegatorBond) Route() string {
+// 	return delegationTypes.RouterKey
+// }
+
+// //
+// // Delegator Unbond
+// //
+
+// var _ sdk.Msg = &MsgDelegatorUnBond{}
+
+// type MsgDelegatorUnBond struct {
+// 	From     types.HeimdallAddress `json:"from"`
+// 	ID       types.DelegatorID     `json:"id"`
+// 	TxHash   types.HeimdallHash    `json:"tx_hash"`
+// 	LogIndex uint64                `json:"log_index"`
+// }
+
+// // NewMsgDelegatorUnBond creates new delegator-unbond
+// func NewMsgDelegatorUnBond(
+// 	id uint64,
+// 	txhash types.HeimdallHash,
+// 	logIndex uint64,
+// ) MsgDelegatorUnBond {
+
+// 	return MsgDelegatorUnBond{
+// 		ID:       types.NewDelegatorID(id),
+// 		TxHash:   txhash,
+// 		LogIndex: logIndex,
+// 	}
+// }
+
+// func (msg MsgDelegatorUnBond) Type() string {
+// 	return "delegator-unbond"
+// }
+
+// func (msg MsgDelegatorUnBond) Route() string {
+// 	return delegationTypes.RouterKey
+// }
+
+// //
+// // Delegator ReBond
+// //
+
+// var _ sdk.Msg = &MsgDelegatorRebond{}
+
+// type MsgDelegatorRebond struct {
+// 	From     types.HeimdallAddress `json:"from"`
+// 	ID       types.DelegatorID     `json:"id"`
+// 	TxHash   types.HeimdallHash    `json:"tx_hash"`
+// 	LogIndex uint64                `json:"log_index"`
+// }
+
+// // NewMsgDelegatorRebond creates new delegator-restake
+// func NewMsgDelegatorRebond(
+// 	id uint64,
+// 	txhash types.HeimdallHash,
+// 	logIndex uint64,
+// ) MsgDelegatorRebond {
+
+// 	return MsgDelegatorRebond{
+// 		ID:       types.NewDelegatorID(id),
+// 		TxHash:   txhash,
+// 		LogIndex: logIndex,
+// 	}
+// }
+
+// func (msg MsgDelegatorRebond) Type() string {
+// 	return "delegator-rebond"
+// }
+
+// func (msg MsgDelegatorRebond) Route() string {
+// 	return delegationTypes.RouterKey
+// }

@@ -10,12 +10,11 @@ import (
 // Delegator heimdall delegator
 type Delegator struct {
 	ID          DelegatorID `json:"ID"`
-	StartEpoch  uint64      `json:"startEpoch"`
-	EndEpoch    uint64      `json:"endEpoch"`
 	VotingPower int64       `json:"power"` // TODO add 10^-18 here so that we dont overflow easily
 	LastUpdated uint64      `json:"last_updated"`
 	ValID       ValidatorID `json:"val_id'`
 }
+
 // --------
 
 // DelegatorID  delegator ID and helper functions
@@ -66,8 +65,7 @@ func (v *Delegator) String() string {
 	if v == nil {
 		return "nil-Delegator"
 	}
-	return fmt.Sprintf("Delegator{%v %v %v VP:%v A:%v}",
+	return fmt.Sprintf("Delegator{%v %v VP:%v A:%v}",
 		v.ID,
-		v.StartEpoch,
 		v.VotingPower)
 }

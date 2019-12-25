@@ -8,7 +8,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/params"
-	hmCommon "github.com/maticnetwork/heimdall/common"
 	delegationTypes "github.com/maticnetwork/heimdall/delegation/types"
 	"github.com/maticnetwork/heimdall/helper"
 	"github.com/maticnetwork/heimdall/staking"
@@ -104,13 +103,13 @@ func (k *Keeper) GetDelegatorInfo(ctx sdk.Context, delegatorID types.DelegatorID
 // 4. Exchange rate is calculated instantly.  //   ExchangeRate = (delegatedpower + delegatorRewardPool) / totaldelegatorshares
 // 5. TotalDelegatorShares of bonded validator is updated.
 // 6. DelegatedPower of bonded validator is updated.
-func (k *Keeper) BondDelegator(ctx sdk.Context, delegatorID types.DelegatorID, valID types.ValidatorID, amount *big.Int, lastUpdated uint64) {
+func (k *Keeper) BondDelegator(ctx sdk.Context, delegatorID types.DelegatorID, valID types.ValidatorID, amount *big.Int, lastUpdated uint64) error {
 
 	// pull delegator from store
 	delegator, err := k.GetDelegatorInfo(ctx, delegatorID)
 	if err != nil {
 		k.Logger(ctx).Error("Fetching of delegator from store failed", "delegatorId", delegatorID)
-		return hmCommon.ErrNoDelegator(k.Codespace()).Result()
+		return errors.New("Delegator not found")
 	}
 
 	// 2. update validator ID of delegator.
@@ -124,12 +123,13 @@ func (k *Keeper) BondDelegator(ctx sdk.Context, delegatorID types.DelegatorID, v
 	validator, ok := k.sk.GetValidatorFromValID(ctx, valID)
 	if !ok {
 		k.Logger(ctx).Error("Fetching of bonded validator from store failed", "validatorId", valID)
-		return hmCommon.ErrNoValidator(k.Codespace()).Result()
+		return errors.New("Validator not found")
 	}
 
 	p, err := helper.GetPowerFromAmount(amount)
 	if err != nil {
-		return hmCommon.ErrInvalidMsg(k.Codespace(), "Invalid amount for validator: %v", msg.ID).Result()
+		k.Logger(ctx).Error("Unable to convert amount to power", "Amount", amount)
+		return errors.New("Unable to convert amount to power")
 	}
 
 	// 4. shares are added to Delegator proportional to his stake and exchange rate.
@@ -150,16 +150,16 @@ func (k *Keeper) BondDelegator(ctx sdk.Context, delegatorID types.DelegatorID, v
 	err = k.AddDelegator(ctx, delegator)
 	if err != nil {
 		k.Logger(ctx).Error("Unable to update delegator", "error", err, "DelegatorID", delegator.ID)
-		return hmCommon.ErrAddDelegator(k.Codespace()).Result()
+		return errors.New("Delegator updation failed")
 	}
 
 	// save validator
 	err = k.sk.AddValidator(ctx, validator)
 	if err != nil {
 		k.Logger(ctx).Error("Unable to update validator", "error", err, "ValidatorID", validator.ID)
-		return hmCommon.ErrSignerUpdateError(k.Codespace()).Result()
+		return errors.New("Validator updation failed")
 	}
-
+	return nil
 }
 
 // HandleMsgDelegatorUnBond msg delegator unbond with validator
@@ -177,68 +177,67 @@ func (k *Keeper) BondDelegator(ctx sdk.Context, delegatorID types.DelegatorID, v
 // 5. Reduce TotalDelegatorShares of bonded validator.
 // 6. Reduce DelgatorRewardPool of bonded validator.
 // 7. make shares = 0 on Delegator Account.
-func (k *Keeper) UnBondDelegator(ctx sdk.Context, delegatorID types.DelegatorID, lastUpdated uint64) {
+// func (k *Keeper) UnBondDelegator(ctx sdk.Context, delegatorID types.DelegatorID, lastUpdated uint64) {
 
-	// pull delegator from store
-	delegator, err := k.GetDelegatorInfo(ctx, delegatorID)
-	if err != nil {
-		k.Logger(ctx).Error("Fetching of delegator from store failed", "delegatorId", delegatorID)
-		return hmCommon.ErrNoDelegator(k.Codespace()).Result()
-	}
+// 	// pull delegator from store
+// 	delegator, err := k.GetDelegatorInfo(ctx, delegatorID)
+// 	if err != nil {
+// 		k.Logger(ctx).Error("Fetching of delegator from store failed", "delegatorId", delegatorID)
+// 		return hmCommon.ErrNoDelegator(k.Codespace()).Result()
+// 	}
 
-	if delegator.ValID == 0 {
-		k.Logger(ctx).Error("Delegator already unbonded", "delegatorId", delegatorID)
-		return hmCommon.ErrNoDelegator(k.Codespace()).Result()
-	}
+// 	if delegator.ValID == 0 {
+// 		k.Logger(ctx).Error("Delegator already unbonded", "delegatorId", delegatorID)
+// 		return hmCommon.ErrNoDelegator(k.Codespace()).Result()
+// 	}
 
-	valID := delegator.ValID
-	// 3. VotingPower of the bonded validator is updated.
-	// pull validator from store
-	validator, ok := k.sk.GetValidatorFromValID(ctx, valID)
-	if !ok {
-		k.Logger(ctx).Error("Fetching of bonded validator from store failed", "validatorId", valID)
-		return hmCommon.ErrNoValidator(k.Codespace()).Result()
-	}
+// 	valID := delegator.ValID
+// 	// 3. VotingPower of the bonded validator is updated.
+// 	// pull validator from store
+// 	validator, ok := k.sk.GetValidatorFromValID(ctx, valID)
+// 	if !ok {
+// 		k.Logger(ctx).Error("Fetching of bonded validator from store failed", "validatorId", valID)
+// 		return hmCommon.ErrNoValidator(k.Codespace()).Result()
+// 	}
 
-	// Get shares of delegator account
-	// delegatorshares =
+// 	// Get shares of delegator account
+// 	// delegatorshares =
 
-	// 6. TotalDelegatorShares of bonded validator is updated.
-	validator.TotalDelegatorShares -= delegatorshares
+// 	// 6. TotalDelegatorShares of bonded validator is updated.
+// 	validator.TotalDelegatorShares -= delegatorshares
 
-	validator.VotingPower -= delegator.VotingPower
+// 	validator.VotingPower -= delegator.VotingPower
 
-	// calculate rewards.
-	totalReturns := validator.ExchangeRate() * delegatorshares
+// 	// calculate rewards.
+// 	totalReturns := validator.ExchangeRate() * delegatorshares
 
-	RewardAmount += totalReturns - delegatorVotingPower
+// 	RewardAmount += totalReturns - delegatorVotingPower
 
-	validator.DelgatorRewardPool -= RewardAmount
+// 	validator.DelgatorRewardPool -= RewardAmount
 
-	// 7. DelegatedPower of bonded validator is updated.
-	validator.DelegatedPower -= delegator.VotingPower
+// 	// 7. DelegatedPower of bonded validator is updated.
+// 	validator.DelegatedPower -= delegator.VotingPower
 
+// 	// save validator
+// 	err = k.sk.AddValidator(ctx, validator)
+// 	if err != nil {
+// 		k.Logger(ctx).Error("Unable to update validator", "error", err, "ValidatorID", validator.ID)
+// 		return hmCommon.ErrSignerUpdateError(k.Codespace()).Result()
+// 	}
 
-	// save validator
-	err = k.sk.AddValidator(ctx, validator)
-	if err != nil {
-		k.Logger(ctx).Error("Unable to update validator", "error", err, "ValidatorID", validator.ID)
-		return hmCommon.ErrSignerUpdateError(k.Codespace()).Result()
-	}
+// 	// 2. update validator ID of delegator.
+// 	delegator.ValID = 0
 
-	// 2. update validator ID of delegator.
-	delegator.ValID = 0
+// 	// update last udpated
+// 	delegator.LastUpdated = lastUpdated
 
-	// update last udpated
-	delegator.LastUpdated = lastUpdated
+// 	// delegator shares = 0
 
-	delegator shares = 0
-	
-	// save delegator
-	err = k.AddDelegator(ctx, delegator)
-	if err != nil {
-		k.Logger(ctx).Error("Unable to update delegator", "error", err, "DelegatorID", delegator.ID)
-		return hmCommon.ErrAddDelegator(k.Codespace()).Result()
-	}
+// 	// save delegator
+// 	err = k.AddDelegator(ctx, delegator)
+// 	if err != nil {
+// 		k.Logger(ctx).Error("Unable to update delegator", "error", err, "DelegatorID", delegator.ID)
+// 		return hmCommon.ErrAddDelegator(k.Codespace()).Result()
+// 	}
 
-}
+// }

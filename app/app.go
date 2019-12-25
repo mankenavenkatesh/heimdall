@@ -25,6 +25,8 @@ import (
 	"github.com/maticnetwork/heimdall/clerk"
 	clerkTypes "github.com/maticnetwork/heimdall/clerk/types"
 	"github.com/maticnetwork/heimdall/common"
+	"github.com/maticnetwork/heimdall/delegation"
+	delegationTypes "github.com/maticnetwork/heimdall/delegation/types"
 	"github.com/maticnetwork/heimdall/helper"
 	"github.com/maticnetwork/heimdall/staking"
 	stakingTypes "github.com/maticnetwork/heimdall/staking/types"
@@ -66,6 +68,7 @@ type HeimdallApp struct {
 	keyGov        *sdk.KVStoreKey
 	keyCheckpoint *sdk.KVStoreKey
 	keyStaking    *sdk.KVStoreKey
+	keyDelegation *sdk.KVStoreKey
 	keyBor        *sdk.KVStoreKey
 	keyClerk      *sdk.KVStoreKey
 	keyMain       *sdk.KVStoreKey
@@ -80,6 +83,7 @@ type HeimdallApp struct {
 
 	checkpointKeeper checkpoint.Keeper
 	stakingKeeper    staking.Keeper
+	delegationKeeper delegation.Keeper
 	borKeeper        bor.Keeper
 	clerkKeeper      clerk.Keeper
 
@@ -138,6 +142,7 @@ func NewHeimdallApp(logger log.Logger, db dbm.DB, baseAppOptions ...func(*bam.Ba
 		// keyGov:        sdk.NewKVStoreKey(gov.StoreKey),
 		keyCheckpoint: sdk.NewKVStoreKey(checkpointTypes.StoreKey),
 		keyStaking:    sdk.NewKVStoreKey(stakingTypes.StoreKey),
+		keyDelegation: sdk.NewKVStoreKey(delegationTypes.StoreKey),
 		keyBor:        sdk.NewKVStoreKey(borTypes.StoreKey),
 		keyClerk:      sdk.NewKVStoreKey(clerkTypes.StoreKey),
 		keyParams:     sdk.NewKVStoreKey(subspace.StoreKey),
@@ -206,6 +211,14 @@ func NewHeimdallApp(logger log.Logger, db dbm.DB, baseAppOptions ...func(*bam.Ba
 		crossCommunicator,
 	)
 
+	app.delegationKeeper = delegation.NewKeeper(
+		app.cdc,
+		app.stakingKeeper,
+		app.keyDelegation,
+		app.paramsKeeper.Subspace(delegationTypes.DefaultParamspace),
+		common.DefaultCodespace,
+	)
+
 	app.checkpointKeeper = checkpoint.NewKeeper(
 		app.cdc,
 		app.stakingKeeper,
@@ -235,6 +248,7 @@ func NewHeimdallApp(logger log.Logger, db dbm.DB, baseAppOptions ...func(*bam.Ba
 		AddRoute(bankTypes.RouterKey, bank.NewHandler(app.bankKeeper, &app.caller)).
 		AddRoute(checkpointTypes.RouterKey, checkpoint.NewHandler(app.checkpointKeeper, &app.caller)).
 		AddRoute(stakingTypes.RouterKey, staking.NewHandler(app.stakingKeeper, &app.caller)).
+		AddRoute(delegationTypes.RouterKey, delegation.NewHandler(app.delegationKeeper, &app.caller)).
 		AddRoute(borTypes.RouterKey, bor.NewHandler(app.borKeeper)).
 		AddRoute(clerkTypes.RouterKey, clerk.NewHandler(app.clerkKeeper, &app.caller))
 
@@ -244,6 +258,7 @@ func NewHeimdallApp(logger log.Logger, db dbm.DB, baseAppOptions ...func(*bam.Ba
 		AddRoute(bankTypes.QuerierRoute, bank.NewQuerier(app.bankKeeper)).
 		AddRoute(supplyTypes.QuerierRoute, supply.NewQuerier(app.supplyKeeper)).
 		AddRoute(stakingTypes.QuerierRoute, staking.NewQuerier(app.stakingKeeper)).
+		AddRoute(delegationTypes.QuerierRoute, delegation.NewQuerier(app.delegationKeeper)).
 		AddRoute(checkpointTypes.QuerierRoute, checkpoint.NewQuerier(app.checkpointKeeper)).
 		AddRoute(borTypes.QuerierRoute, bor.NewQuerier(app.borKeeper)).
 		AddRoute(clerkTypes.QuerierRoute, clerk.NewQuerier(app.clerkKeeper))
@@ -268,6 +283,7 @@ func NewHeimdallApp(logger log.Logger, db dbm.DB, baseAppOptions ...func(*bam.Ba
 		app.keySupply,
 		app.keyCheckpoint,
 		app.keyStaking,
+		app.keyDelegation,
 		app.keyBor,
 		app.keyClerk,
 		app.keyParams,

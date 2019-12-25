@@ -50,6 +50,13 @@ const (
 	CodeErrComputeGenesisAccountRoot CodeType = 4503
 	CodeAccountRootMismatch          CodeType = 4504
 	CodeErrComputeCheckpointReward   CodeType = 4505
+
+	CodeOldDelegator       CodeType = 6500
+	CodeNoDelegator        CodeType = 6501
+	CodeDelegatorExitDeny  CodeType = 6502
+	CodeDelAlreadyUnbonded CodeType = 6503
+	CodeDelSave            CodeType = 6504
+	CodeDelAlreadyJoined   CodeType = 6505
 )
 
 // -------- Invalid msg
@@ -173,6 +180,23 @@ func ErrComputeGenesisAccountRoot(codespace sdk.CodespaceType) sdk.Error {
 
 func ErrAccountRootMismatch(codespace sdk.CodespaceType) sdk.Error {
 	return newError(codespace, CodeAccountRootMismatch, "Account Root hash mismatch")
+}
+
+// ----------- Delegation Errors
+func ErrOldDelegator(codespace sdk.CodespaceType) sdk.Error {
+	return newError(codespace, CodeOldDelegator, "Start Epoch behind Current Epoch")
+}
+
+func ErrNoDelegator(codespace sdk.CodespaceType) sdk.Error {
+	return newError(codespace, CodeNoDelegator, "Delegator information not found")
+}
+
+func ErrDelegatorSave(codespace sdk.CodespaceType) sdk.Error {
+	return newError(codespace, CodeDelSave, "Cannot save Delegator")
+}
+
+func ErrDelegatorAlreadyJoined(codespace sdk.CodespaceType) sdk.Error {
+	return newError(codespace, CodeDelAlreadyJoined, "Delegator already joined")
 }
 
 // Bor Errors --------------------------------

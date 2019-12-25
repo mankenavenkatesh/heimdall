@@ -41,6 +41,7 @@ type IContractCaller interface {
 	DecodeSignerUpdateEvent(*ethTypes.Receipt, uint64) (*stakemanager.StakemanagerSignerChange, error)
 	GetMainTxReceipt(common.Hash) (*ethTypes.Receipt, error)
 	GetMaticTxReceipt(common.Hash) (*ethTypes.Receipt, error)
+	GetDelegator(delegatorID types.DelegatorID) (delegator types.Delegator, err error)
 
 	// bor related contracts
 	CurrentSpanNumber() (Number *big.Int)
@@ -224,6 +225,29 @@ func (c *ContractCaller) GetValidatorInfo(valID types.ValidatorID) (validator ty
 	}
 
 	return validator, nil
+}
+
+// GetDelegator gets delegator info from delegation manager contract
+func (c *ContractCaller) GetDelegator(delegatorID types.DelegatorID) (delegator types.Delegator, err error) {
+
+	delegatorStruct, err := c.DelegationManagerInstance.Delegators(nil, big.NewInt(int64(delegatorID)))
+	if err != nil {
+		Logger.Error("Error fetching Delegator information from Delegation manager", "error", err, "delegatorID", delegatorID)
+		return
+	}
+
+	delegatorPower, err := GetPowerFromAmount(delegatorStruct.Amount)
+	if err != nil {
+		return
+	}
+
+	// newAmount
+	delegator = types.Delegator{
+		ID:          delegatorID,
+		VotingPower: delegatorPower.Int64(),
+		ValID:       types.ValidatorID(delegatorStruct.BondedTo.Uint64()),
+	}
+	return delegator, nil
 }
 
 // get main chain block header
