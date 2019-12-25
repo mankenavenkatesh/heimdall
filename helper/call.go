@@ -12,6 +12,7 @@ import (
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/maticnetwork/heimdall/contracts/delegationmanager"
 	"github.com/maticnetwork/heimdall/contracts/rootchain"
 	"github.com/maticnetwork/heimdall/contracts/stakemanager"
 	"github.com/maticnetwork/heimdall/contracts/statereceiver"
@@ -54,17 +55,19 @@ type ContractCaller struct {
 	MainChainRPC     *rpc.Client
 	MaticChainClient *ethclient.Client
 
-	RootChainInstance     *rootchain.Rootchain
-	StakeManagerInstance  *stakemanager.Stakemanager
-	ValidatorSetInstance  *validatorset.Validatorset
-	StateSenderInstance   *statesender.Statesender
-	StateReceiverInstance *statereceiver.Statereceiver
+	RootChainInstance         *rootchain.Rootchain
+	StakeManagerInstance      *stakemanager.Stakemanager
+	DelegationManagerInstance *delegationmanager.Delegationmanager
+	ValidatorSetInstance      *validatorset.Validatorset
+	StateSenderInstance       *statesender.Statesender
+	StateReceiverInstance     *statereceiver.Statereceiver
 
-	RootChainABI     abi.ABI
-	StakeManagerABI  abi.ABI
-	ValidatorSetABI  abi.ABI
-	StateReceiverABI abi.ABI
-	StateSenderABI   abi.ABI
+	RootChainABI         abi.ABI
+	StakeManagerABI      abi.ABI
+	DelegationManagerABI abi.ABI
+	ValidatorSetABI      abi.ABI
+	StateReceiverABI     abi.ABI
+	StateSenderABI       abi.ABI
 }
 
 type txExtraInfo struct {
@@ -89,6 +92,10 @@ func NewContractCaller() (contractCallerObj ContractCaller, err error) {
 	//
 
 	if contractCallerObj.RootChainInstance, err = rootchain.NewRootchain(GetRootChainAddress(), contractCallerObj.MainChainClient); err != nil {
+		return
+	}
+
+	if contractCallerObj.DelegationManagerInstance, err = delegationmanager.NewDelegationmanager((GetDelegationManagerAddress()), contractCallerObj.MainChainClient); err != nil {
 		return
 	}
 
@@ -117,6 +124,10 @@ func NewContractCaller() (contractCallerObj ContractCaller, err error) {
 	}
 
 	if contractCallerObj.StakeManagerABI, err = getABI(string(stakemanager.StakemanagerABI)); err != nil {
+		return
+	}
+
+	if contractCallerObj.DelegationManagerABI, err = getABI(string(delegationmanager.DelegationmanagerABI)); err != nil {
 		return
 	}
 

@@ -22,6 +22,7 @@ import (
 
 	"github.com/maticnetwork/heimdall/checkpoint"
 	clerkTypes "github.com/maticnetwork/heimdall/clerk/types"
+	"github.com/maticnetwork/heimdall/contracts/delegationmanager"
 	"github.com/maticnetwork/heimdall/contracts/rootchain"
 	"github.com/maticnetwork/heimdall/contracts/stakemanager"
 	"github.com/maticnetwork/heimdall/contracts/statesender"
@@ -265,6 +266,7 @@ func (syncer *Syncer) processHeader(newHeader *types.Header) {
 			helper.GetRootChainAddress(),
 			helper.GetStakeManagerAddress(),
 			helper.GetStateSenderAddress(),
+			helper.GetDelegationManagerAddress(),
 		},
 	}
 
@@ -300,6 +302,8 @@ func (syncer *Syncer) processHeader(newHeader *types.Header) {
 					syncer.processJailedEvent(selectedEvent.Name, abiObject, &vLog)
 				case "StateSynced":
 					syncer.processStateSyncedEvent(selectedEvent.Name, abiObject, &vLog)
+				case "Bonding":
+					syncer.processDelegatorBondEvent(selectedEvent.Name, abiObject, &vLog)
 					// case "Withdraw":
 					// 	syncer.processWithdrawEvent(selectedEvent.Name, abiObject, &vLog)
 				}
@@ -546,6 +550,33 @@ func (syncer *Syncer) processStateSyncedEvent(eventName string, abiObject *abi.A
 
 		// broadcast to heimdall
 		syncer.queueConnector.BroadcastToHeimdall(msg)
+	}
+}
+
+// Delegation Events
+func (syncer *Syncer) processDelegatorBondEvent(eventName string, abiObject *abi.ABI, vLog *types.Log) {
+	event := new(delegationmanager.DelegationmanagerBonding)
+	if err := helper.UnpackLog(abiObject, event, eventName, vLog); err != nil {
+		logEventParseError(syncer.Logger, eventName, err)
+	} else {
+		syncer.Logger.Debug(
+			"New event found",
+			"event", eventName,
+			"DelegatorId", event.DelegatorId,
+			"ValidatorId", event.ValidatorId,
+			"Amount", event.Amount,
+		)
+
+		msg := clerkTypes.NewMsgEventRecord(
+			hmTypes.BytesToHeimdallAddress(helper.GetAddress()),
+			hmTypes.BytesToHeimdallHash(vLog.TxHash.Bytes()),
+			uint64(vLog.Index),
+			event.DelegatorId.Uint64(),
+		)
+
+		// broadcast to heimdall
+		syncer.queueConnector.BroadcastToHeimdall(msg)
+
 	}
 }
 

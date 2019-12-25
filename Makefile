@@ -35,6 +35,7 @@ contracts:
 	abigen --abi=contracts/statesender/statesender.abi --pkg=statesender --out=contracts/statesender/statesender.go
 	
 	abigen --abi=contracts/validatorset/validatorset.abi --pkg=validatorset --out=contracts/validatorset/validatorset.go
+	abigen --abi=contracts/delegationmanager/delegationmanager.abi --pkg=delegationmanager --out=contracts/delegationmanager/delegationmanager.go
 
 init-heimdall:
 	./build/heimdalld init
