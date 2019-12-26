@@ -245,7 +245,8 @@ func handleMsgCheckpointAck(ctx sdk.Context, msg MsgCheckpointAck, k Keeper, con
 	// Calculate new account root hash
 	valAccounts := k.sk.GetAllValidatorAccounts(ctx)
 	k.Logger(ctx).Debug("validatoraccounts of all validators", "valAccounts", valAccounts)
-	accountRoot, err := GetAccountRootHash(valAccounts)
+	delegatorAccounts := k.dk.GetAllDelegatorAccounts(ctx)
+	accountRoot, err := GetAccountRootHash(valAccounts, delegatorAccounts)
 	k.Logger(ctx).Info("Validator Account root hash generated", "AccountRootHash", types.BytesToHeimdallHash(accountRoot).String())
 
 	// Add new AccountRootHash root hash to bufferedcheckpoint header block

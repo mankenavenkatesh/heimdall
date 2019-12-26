@@ -86,14 +86,19 @@ func GetHeaders(start uint64, end uint64) ([]byte, error) {
 	return tree.Root().Hash, nil
 }
 
-// GetAccountRootHash returns roothash of Validator Account State Tree
-func GetAccountRootHash(validatorAccounts []hmTypes.ValidatorAccount) ([]byte, error) {
+// GetAccountRootHash returns roothash of Validator, Delegator Account State Tree
+func GetAccountRootHash(validatorAccounts []hmTypes.ValidatorAccount, delegatorAccounts []hmTypes.DelegatorAccount) ([]byte, error) {
 	// Sort the validatorAccounts by valID
 	validatorAccounts = hmTypes.SortValidatorAccountByID(validatorAccounts)
 
-	expectedLength := len(validatorAccounts)
+	// Sort delegatorAccounts by delID
+	delegatorAccounts = hmTypes.SortDelegatorAccountByID(delegatorAccounts)
+
+	expectedLength := len(validatorAccounts) + len(delegatorAccounts)
 	valAccountHashes := make([][32]byte, expectedLength)
 	i := 0
+
+	// add validatoraccount hashes
 	for _, va := range validatorAccounts {
 		reward, _ := big.NewInt(0).SetString(va.RewardAmount, 10)
 		slashAmount, _ := big.NewInt(0).SetString(va.SlashedAmount, 10)
@@ -104,6 +109,22 @@ func GetAccountRootHash(validatorAccounts []hmTypes.ValidatorAccount) ([]byte, e
 		))
 		var arr [32]byte
 		copy(arr[:], valAccountHash)
+
+		valAccountHashes[i] = arr
+		i++
+	}
+
+	// add delegatoraccount hashes
+	for _, da := range delegatorAccounts {
+		reward, _ := big.NewInt(0).SetString(da.RewardAmount, 10)
+		slashAmount, _ := big.NewInt(0).SetString(da.SlashedAmount, 10)
+		delAccountHash := crypto.Keccak256(appendBytes32(
+			new(big.Int).SetUint64(uint64(da.ID)).Bytes(),
+			reward.Bytes(),
+			slashAmount.Bytes(),
+		))
+		var arr [32]byte
+		copy(arr[:], delAccountHash)
 
 		valAccountHashes[i] = arr
 		i++

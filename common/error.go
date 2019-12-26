@@ -54,9 +54,10 @@ const (
 	CodeOldDelegator       CodeType = 6500
 	CodeNoDelegator        CodeType = 6501
 	CodeDelegatorExitDeny  CodeType = 6502
-	CodeDelAlreadyUnbonded CodeType = 6503
-	CodeDelSave            CodeType = 6504
-	CodeDelAlreadyJoined   CodeType = 6505
+	CodeDelAlreadyJoined   CodeType = 6503
+	CodeDelAlreadyBonded   CodeType = 6504
+	CodeDelAlreadyUnbonded CodeType = 6505
+	CodeDelSave            CodeType = 6506
 )
 
 // -------- Invalid msg
@@ -197,6 +198,10 @@ func ErrDelegatorSave(codespace sdk.CodespaceType) sdk.Error {
 
 func ErrDelegatorAlreadyJoined(codespace sdk.CodespaceType) sdk.Error {
 	return newError(codespace, CodeDelAlreadyJoined, "Delegator already joined")
+}
+
+func ErrAlreadyBonded(codespace sdk.CodespaceType) sdk.Error {
+	return newError(codespace, CodeDelAlreadyBonded, "Delegator already bonded")
 }
 
 // Bor Errors --------------------------------

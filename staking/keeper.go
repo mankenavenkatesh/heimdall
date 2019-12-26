@@ -361,7 +361,33 @@ func (k *Keeper) GetLastUpdated(ctx sdk.Context, valID types.ValidatorID) (updat
 }
 
 // RewardValidator will update validator account with new reward
-func (k *Keeper) RewardValidator(ctx sdk.Context, valID types.ValidatorID, reward *big.Int) (err error) {
+func (k *Keeper) RewardValidator(ctx sdk.Context, valID types.ValidatorID, totalRewards *big.Int) (err error) {
+	// Divide total reward between validator and his delegator pool.
+	validator, ok := k.GetValidatorFromValID(ctx, valID)
+	if !ok {
+		return errors.New("Validator not found")
+	}
+
+	// calculate validator Reward
+	valPower := (validator.VotingPower - validator.DelegatedPower)
+	bigvalPow := new(big.Float)
+	bigvalPow.SetFloat64(float64(valPower))
+	bigvalTotalPow := new(big.Float)
+	bigvalTotalPow.SetFloat64(float64(validator.VotingPower))
+	valRew := new(big.Float).Quo(bigvalPow, bigvalTotalPow)
+	valReward := big.NewInt(0)
+	valReward, _ = valRew.Int(valReward)
+
+	// calculate delegator reward
+	delPower := validator.DelegatedPower
+	bigdelPow := new(big.Float)
+	bigdelPow.SetFloat64(float64(delPower))
+	bigvalTotalPow = new(big.Float)
+	bigvalTotalPow.SetFloat64(float64(validator.VotingPower))
+	delRew := new(big.Float).Quo(bigdelPow, bigvalTotalPow)
+	delReward := big.NewInt(0)
+	delReward, _ = delRew.Int(delReward)
+
 	var validatorAccount types.ValidatorAccount
 	if k.CheckIfValidatorAccountExists(ctx, valID) {
 		validatorAccount, err = k.GetValidatorAccountByValID(ctx, valID)
@@ -378,9 +404,21 @@ func (k *Keeper) RewardValidator(ctx sdk.Context, valID types.ValidatorID, rewar
 
 	// Add reward to reward balance
 	rewardBalance, _ := big.NewInt(0).SetString(validatorAccount.RewardAmount, 10)
-	updatedReward := big.NewInt(0).Add(reward, rewardBalance)
+	updatedReward := big.NewInt(0).Add(valReward, rewardBalance)
 	validatorAccount.RewardAmount = updatedReward.String()
-	err = k.AddValidatorAccount(ctx, validatorAccount)
+
+	// Add delegator reward to delegatorRewardPool
+	delegatorPoolRewardBalance, _ := big.NewInt(0).SetString(validator.DelgatorRewardPool, 10)
+	updatedDelegatorPoolReward := big.NewInt(0).Add(delReward, delegatorPoolRewardBalance)
+	validator.DelgatorRewardPool = updatedDelegatorPoolReward.String()
+
+	if err = k.AddValidator(ctx, validator); err != nil {
+		return err
+	}
+
+	if err = k.AddValidatorAccount(ctx, validatorAccount); err != nil {
+		return err
+	}
 	return
 }
 

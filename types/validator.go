@@ -18,7 +18,7 @@ type Validator struct {
 	EndEpoch             uint64          `json:"endEpoch"`
 	VotingPower          int64           `json:"power"` // TODO add 10^-18 here so that we dont overflow easily
 	DelegatedPower       int64           `json:"delegatedpower"`
-	DelgatorRewardPool   int64           `json:delegatorRewardPool`
+	DelgatorRewardPool   string          `json:delegatorRewardPool`
 	TotalDelegatorShares float32         `json:totalDelegatorShares`
 	PubKey               PubKey          `json:"pubKey"`
 	Signer               HeimdallAddress `json:"signer"`

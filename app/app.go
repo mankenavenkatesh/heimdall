@@ -222,6 +222,7 @@ func NewHeimdallApp(logger log.Logger, db dbm.DB, baseAppOptions ...func(*bam.Ba
 	app.checkpointKeeper = checkpoint.NewKeeper(
 		app.cdc,
 		app.stakingKeeper,
+		app.delegationKeeper,
 		app.keyCheckpoint,
 		app.paramsKeeper.Subspace(checkpointTypes.DefaultParamspace),
 		common.DefaultCodespace,

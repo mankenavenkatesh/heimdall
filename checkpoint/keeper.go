@@ -11,6 +11,7 @@ import (
 
 	checkpointTypes "github.com/maticnetwork/heimdall/checkpoint/types"
 	cmn "github.com/maticnetwork/heimdall/common"
+	"github.com/maticnetwork/heimdall/delegation"
 	"github.com/maticnetwork/heimdall/helper"
 	"github.com/maticnetwork/heimdall/staking"
 	"github.com/maticnetwork/heimdall/types"
@@ -30,6 +31,10 @@ type Keeper struct {
 	cdc *codec.Codec
 	// staking keeper
 	sk staking.Keeper
+
+	// delegation Keeper
+	dk delegation.Keeper
+
 	// The (unexposed) keys used to access the stores from the Context.
 	storeKey sdk.StoreKey
 	// codespace
@@ -42,6 +47,7 @@ type Keeper struct {
 func NewKeeper(
 	cdc *codec.Codec,
 	stakingKeeper staking.Keeper,
+	delegationKeeper delegation.Keeper,
 	storeKey sdk.StoreKey,
 	paramSpace params.Subspace,
 	codespace sdk.CodespaceType,
@@ -49,6 +55,7 @@ func NewKeeper(
 	keeper := Keeper{
 		cdc:        cdc,
 		sk:         stakingKeeper,
+		dk:         delegationKeeper,
 		storeKey:   storeKey,
 		paramSpace: paramSpace,
 		codespace:  codespace,

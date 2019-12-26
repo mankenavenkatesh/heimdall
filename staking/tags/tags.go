@@ -15,5 +15,6 @@ var (
 	DeactivationEpoch   = "deactivation-epoch"
 	ActivationEpoch     = "activation-epoch"
 	ValidatorID         = "validator-id"
+	DelegatorID         = "delegator-id"
 	UpdatedAt           = "updated-at"
 )
