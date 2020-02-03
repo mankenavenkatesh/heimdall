@@ -180,29 +180,33 @@ func handleMsgWithdrawFee(ctx sdk.Context, k Keeper, msg types.MsgWithdrawFee) s
 
 	// check if fee is already withdrawn
 	coins := k.GetCoins(ctx, msg.FromAddress)
-	veticBalance := coins.AmountOf("matic")
-	k.Logger(ctx).Info("Fee balance for ", "fromAddress", msg.FromAddress, "validatorId", msg.ID, "balance", veticBalance.BigInt().String())
-	if veticBalance.IsZero() {
+	maticBalance := coins.AmountOf("matic")
+	k.Logger(ctx).Info("Fee balance for ", "fromAddress", msg.FromAddress, "validatorId", msg.ID, "balance", maticBalance.BigInt().String())
+	if maticBalance.IsZero() {
 		return types.ErrNoBalanceToWithdraw(k.Codespace()).Result()
 	}
 
+	amountToWithdraw := msg.WithdrawAmount
+	if amountToWithdraw.GTE(maticBalance) {
+		return types.ErrInvalidWithdrawAmount(k.Codespace()).Result()
+	}
+
 	// withdraw coins of validator.
-	zeroVetic := hmTypes.Coins{hmTypes.Coin{Denom: "matic", Amount: hmTypes.NewInt(0)}}
-	if err := k.SetCoins(ctx, msg.FromAddress, zeroVetic); err != nil {
-		k.Logger(ctx).Error("Error while setting Fee balance to zero ", "fromAddress", msg.FromAddress, "validatorId", msg.ID, "err", err)
+	balanceAfterWithdraw := hmTypes.Coins{hmTypes.Coin{Denom: "matic", Amount: maticBalance.Sub(amountToWithdraw)}}
+	if err := k.SetCoins(ctx, msg.FromAddress, balanceAfterWithdraw); err != nil {
+		k.Logger(ctx).Error("Error while setting Fee balance ", "fromAddress", msg.FromAddress, "validatorId", msg.ID, "balance", balanceAfterWithdraw, "err", err)
 		return err.Result()
 	}
 
 	// Add Fee to Dividend Account
-	feeAmount := veticBalance.BigInt()
-	k.AddFeeToDividendAccount(ctx, msg.ID, feeAmount)
+	k.AddFeeToDividendAccount(ctx, msg.ID, amountToWithdraw.BigInt())
 
 	ctx.EventManager().EmitEvents(sdk.Events{
 		sdk.NewEvent(
 			types.EventTypeFeeWithdraw,
 			sdk.NewAttribute(sdk.AttributeKeyModule, types.AttributeValueCategory),
 			sdk.NewAttribute(types.AttributeKeyValidatorID, strconv.FormatUint(uint64(msg.ID), 10)),
-			sdk.NewAttribute(types.AttributeKeyFeeWithdrawAmount, strconv.FormatUint(feeAmount.Uint64(), 10)),
+			sdk.NewAttribute(types.AttributeKeyFeeWithdrawAmount, strconv.FormatUint(amountToWithdraw.BigInt().Uint64(), 10)),
 		),
 	})
 

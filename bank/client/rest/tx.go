@@ -103,7 +103,8 @@ func TopupHandlerFn(cliCtx context.CLIContext) http.HandlerFunc {
 type WithdrawFeeReq struct {
 	BaseReq rest.BaseReq `json:"base_req" yaml:"base_req"`
 
-	ID uint64 `json:"id" yaml:"id"`
+	ID             uint64 `json:"id" yaml:"id"`
+	WithdrawAmount string `json:"withdraw_amount" yaml:"withdraw_amount"`
 }
 
 // WithdrawFeeHandlerFn - http request handler to withdraw fee coins from a address.
@@ -119,13 +120,15 @@ func WithdrawFeeHandlerFn(cliCtx context.CLIContext) http.HandlerFunc {
 			return
 		}
 
-		// get from address
+		// get from address & withdraw amount
 		fromAddr := types.HexToHeimdallAddress(req.BaseReq.From)
+		withdrawAmt, _ := types.NewIntFromString(req.WithdrawAmount)
 
 		// get msg
 		msg := bankTypes.NewMsgWithdrawFee(
 			fromAddr,
 			req.ID,
+			withdrawAmt,
 		)
 		restClient.WriteGenerateStdTxResponse(w, cliCtx, req.BaseReq, []sdk.Msg{msg})
 	}

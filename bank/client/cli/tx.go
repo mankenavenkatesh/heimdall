@@ -153,10 +153,14 @@ func WithdrawFeeTxCmd(cdc *codec.Codec) *cobra.Command {
 				return fmt.Errorf("Validator ID cannot be zero")
 			}
 
+			withdrawAmtStr := viper.GetString(FlagWithdrawAmount)
+			withdrawAmt, _ := types.NewIntFromString(withdrawAmtStr)
+
 			// get msg
 			msg := bankTypes.NewMsgWithdrawFee(
 				proposer,
 				uint64(validatorID),
+				withdrawAmt,
 			)
 
 			// broadcast msg with cli
@@ -166,6 +170,9 @@ func WithdrawFeeTxCmd(cdc *codec.Codec) *cobra.Command {
 
 	cmd.Flags().Int(FlagValidatorID, 0, "--validator-id=<validator ID here>")
 	cmd.MarkFlagRequired(FlagValidatorID)
+
+	cmd.Flags().String(FlagWithdrawAmount, "0", "--withdraw-amt=<withdraw amount here>")
+	cmd.MarkFlagRequired(FlagWithdrawAmount)
 
 	return cmd
 }

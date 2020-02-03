@@ -6,10 +6,11 @@ import (
 
 // Bank errors reserve 100 ~ 199.
 const (
-	CodeSendDisabled         sdk.CodeType = 101
-	CodeInvalidInputsOutputs sdk.CodeType = 102
-	CodeNoValidatorTopup     sdk.CodeType = 103
-	CodeNoBalanceToWithdraw  sdk.CodeType = 104
+	CodeSendDisabled          sdk.CodeType = 101
+	CodeInvalidInputsOutputs  sdk.CodeType = 102
+	CodeNoValidatorTopup      sdk.CodeType = 103
+	CodeNoBalanceToWithdraw   sdk.CodeType = 104
+	CodeInvalidWithdrawAmount sdk.CodeType = 105
 )
 
 // ErrNoInputs is an error
@@ -40,4 +41,9 @@ func ErrNoValidatorTopup(codespace sdk.CodespaceType) sdk.Error {
 // ErrNoBalanceToWithdraw is an error for validator topup withdraw
 func ErrNoBalanceToWithdraw(codespace sdk.CodespaceType) sdk.Error {
 	return sdk.NewError(codespace, CodeNoBalanceToWithdraw, "No balance to withdraw")
+}
+
+// ErrInvalidWithdrawAmount is an error for validator topup withdraw amount
+func ErrInvalidWithdrawAmount(codespace sdk.CodespaceType) sdk.Error {
+	return sdk.NewError(codespace, CodeInvalidWithdrawAmount, " withdraw amount greater than balance")
 }

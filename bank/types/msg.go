@@ -5,6 +5,7 @@ import (
 
 	hmCommon "github.com/maticnetwork/heimdall/common"
 	"github.com/maticnetwork/heimdall/types"
+	hmTypes "github.com/maticnetwork/heimdall/types"
 )
 
 //
@@ -260,8 +261,9 @@ func (msg MsgTopup) GetSigners() []sdk.AccAddress {
 
 // MsgWithdrawFee - high level transaction of the fee coin withdrawal module
 type MsgWithdrawFee struct {
-	FromAddress types.HeimdallAddress `json:"from_address"`
-	ID          types.ValidatorID     `json:"id"`
+	FromAddress    types.HeimdallAddress `json:"from_address"`
+	ID             types.ValidatorID     `json:"id"`
+	WithdrawAmount hmTypes.Int           `withdraw_amount`
 }
 
 var _ sdk.Msg = MsgWithdrawFee{}
@@ -270,10 +272,12 @@ var _ sdk.Msg = MsgWithdrawFee{}
 func NewMsgWithdrawFee(
 	fromAddr types.HeimdallAddress,
 	id uint64,
+	withdrawAmt hmTypes.Int,
 ) MsgWithdrawFee {
 	return MsgWithdrawFee{
-		FromAddress: fromAddr,
-		ID:          types.NewValidatorID(id),
+		FromAddress:    fromAddr,
+		ID:             types.NewValidatorID(id),
+		WithdrawAmount: withdrawAmt,
 	}
 }
 
@@ -295,6 +299,10 @@ func (msg MsgWithdrawFee) ValidateBasic() sdk.Error {
 
 	if msg.FromAddress.Empty() {
 		return hmCommon.ErrInvalidMsg(hmCommon.DefaultCodespace, "Invalid proposer %v", msg.FromAddress.String())
+	}
+
+	if !msg.WithdrawAmount.GT(hmTypes.NewInt(0)) {
+		return hmCommon.ErrInvalidMsg(hmCommon.DefaultCodespace, "Invalid withdraw amount %v", msg.WithdrawAmount)
 	}
 
 	return nil
